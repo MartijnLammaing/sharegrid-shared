@@ -1,0 +1,51 @@
+{
+  "name": "@sharegrid/shared",
+  "version": "0.1.0",
+  "description": "Shared protocol types, crypto helpers, TLS utilities, and typed errors for ShareGrid components.",
+  "private": true,
+  "type": "commonjs",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./protocol": {
+      "types": "./dist/protocol.d.ts",
+      "default": "./dist/protocol.js"
+    },
+    "./crypto": {
+      "types": "./dist/crypto.d.ts",
+      "default": "./dist/crypto.js"
+    },
+    "./tls": {
+      "types": "./dist/tls.d.ts",
+      "default": "./dist/tls.js"
+    },
+    "./errors": {
+      "types": "./dist/errors.d.ts",
+      "default": "./dist/errors.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test:unit": "vitest run tests/unit",
+    "lint": "eslint src tests"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@typescript-eslint/eslint-plugin": "^8.18.0",
+    "@typescript-eslint/parser": "^8.18.0",
+    "eslint": "^9.17.0",
+    "prettier": "^3.4.2",
+    "selfsigned": "^2.4.1",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}
