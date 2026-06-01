@@ -23,7 +23,6 @@ export interface RegistrationPayload {
   v: ProtocolVersion;
   type: 'register';
   modelName: string;
-  contextSize: number;
   port: number;
   tlsFingerprint: string;
 }
@@ -127,7 +126,6 @@ export interface HostListRequest {
 export interface HostListEntry {
   hostId: string;
   modelName: string;
-  contextSize: number;
   /** `host:port` the user connects to directly. */
   endpoint: string;
   /** `sha256:<hex>`; pinned by the user before opening a session. */
