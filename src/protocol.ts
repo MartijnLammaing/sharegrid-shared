@@ -100,6 +100,18 @@ export interface ResponseEnd {
   type: 'response_end';
 }
 
+/** User → Host: cancel the currently in-flight prompt. No-op if no prompt is in flight. */
+export interface PromptCancel {
+  v: ProtocolVersion;
+  type: 'prompt_cancel';
+}
+
+/** Host → User: confirmation that the in-flight prompt was cancelled; session remains open. */
+export interface PromptCancelled {
+  v: ProtocolVersion;
+  type: 'prompt_cancelled';
+}
+
 /** Either party: request graceful session shutdown. */
 export interface SessionClose {
   v: ProtocolVersion;
@@ -170,7 +182,7 @@ export interface HostKeyTokenPayload {
 export type RouterIncomingMessage = RegistrationPayload | HeartbeatPayload | HostListRequest;
 
 /** Any message a host may receive from a connected user. */
-export type HostIncomingMessage = SessionOpenPayload | PromptPayload | SessionClose;
+export type HostIncomingMessage = SessionOpenPayload | PromptPayload | PromptCancel | SessionClose;
 
 /** Any message a user may receive from a host. */
 export type UserFromHostMessage =
@@ -178,6 +190,7 @@ export type UserFromHostMessage =
   | SessionReject
   | ResponseChunk
   | ResponseEnd
+  | PromptCancelled
   | SessionClose
   | SessionTimeout;
 
