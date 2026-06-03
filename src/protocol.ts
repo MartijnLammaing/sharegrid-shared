@@ -76,42 +76,30 @@ export interface SessionReject {
   reason: 'busy' | 'invalid_token' | 'not_registered';
 }
 
-/** A single chat turn carried in {@link PromptPayload.messages}. */
-export interface ChatMessage {
-  role: string;
-  content: string;
+/**
+ * User → Host: carries the full OpenAI `/v1/chat/completions` request body.
+ *
+ * The `body` field is the JSON-serialised OpenAI request (messages, tools,
+ * tool_choice, stream flag, etc.). The host forwards it verbatim to llama.cpp
+ * and streams raw SSE lines back via `InferenceResponseChunk`.
+ */
+export interface InferenceRequestPayload {
+  v: ProtocolVersion;
+  type: 'inference_request';
+  body: string;
 }
 
-/** User → Host: a chat completion request. Caller owns conversation history. */
-export interface PromptPayload {
+/**
+ * Host → User: one raw SSE line from llama.cpp.
+ *
+ * Examples: `"data: {\"choices\":[...]}"` or `"data: [DONE]"`.
+ * The user adapter forwards these lines verbatim to the HTTP client (OpenCode).
+ * The `data: [DONE]` line signals the end of the inference stream.
+ */
+export interface InferenceResponseChunk {
   v: ProtocolVersion;
-  type: 'prompt';
-  messages: ChatMessage[];
-}
-
-/** Host → User: one streamed chunk of response content. */
-export interface ResponseChunk {
-  v: ProtocolVersion;
-  type: 'response_chunk';
-  content: string;
-}
-
-/** Host → User: marker after the final chunk of a single prompt's response. */
-export interface ResponseEnd {
-  v: ProtocolVersion;
-  type: 'response_end';
-}
-
-/** User → Host: cancel the currently in-flight prompt. No-op if no prompt is in flight. */
-export interface PromptCancel {
-  v: ProtocolVersion;
-  type: 'prompt_cancel';
-}
-
-/** Host → User: confirmation that the in-flight prompt was cancelled; session remains open. */
-export interface PromptCancelled {
-  v: ProtocolVersion;
-  type: 'prompt_cancelled';
+  type: 'inference_response_chunk';
+  data: string;
 }
 
 /** Either party: request graceful session shutdown. */
@@ -186,15 +174,13 @@ export interface HostKeyTokenPayload {
 export type RouterIncomingMessage = RegistrationPayload | HeartbeatPayload | HostListRequest;
 
 /** Any message a host may receive from a connected user. */
-export type HostIncomingMessage = SessionOpenPayload | PromptPayload | PromptCancel | SessionClose;
+export type HostIncomingMessage = SessionOpenPayload | InferenceRequestPayload | SessionClose;
 
 /** Any message a user may receive from a host. */
 export type UserFromHostMessage =
   | SessionAck
   | SessionReject
-  | ResponseChunk
-  | ResponseEnd
-  | PromptCancelled
+  | InferenceResponseChunk
   | SessionClose
   | SessionTimeout;
 
