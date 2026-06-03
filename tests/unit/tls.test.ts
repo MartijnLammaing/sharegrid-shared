@@ -14,7 +14,7 @@ import {
   FINGERPRINT_REGEX,
   parseFingerprintFromUrl,
 } from '../../src/tls.js';
-import { TlsFingerprintError } from '../../src/errors.js';
+import { TlsFingerprintError, RoleKeyMissingError } from '../../src/errors.js';
 
 interface SelfSignedPems {
   cert: string;
@@ -31,50 +31,61 @@ function makeSelfSigned(): SelfSignedPems {
 
 describe('parseFingerprintFromUrl', () => {
   const goodFingerprint = `${FINGERPRINT_PREFIX}${'a'.repeat(64)}`;
+  const goodKey = 'testRoleKey123';
+  const goodUrl = `https://router.example.com:8443?fp=${goodFingerprint}&key=${goodKey}`;
 
-  it('extracts host, port, and fingerprint from a well-formed URL', () => {
-    const parsed = parseFingerprintFromUrl(`https://router.example.com:8443?fp=${goodFingerprint}`);
+  it('extracts host, port, fingerprint, and roleKey from a well-formed URL', () => {
+    const parsed = parseFingerprintFromUrl(goodUrl);
     expect(parsed).toEqual({
       host: 'router.example.com',
       port: 8443,
       fingerprint: goodFingerprint,
+      roleKey: goodKey,
     });
   });
 
   it('normalises uppercase fingerprints to lowercase', () => {
     const upper = `${FINGERPRINT_PREFIX}${'A'.repeat(64)}`;
-    const parsed = parseFingerprintFromUrl(`https://h:1?fp=${upper}`);
+    const parsed = parseFingerprintFromUrl(`https://h:1?fp=${upper}&key=${goodKey}`);
     expect(parsed.fingerprint).toBe(`${FINGERPRINT_PREFIX}${'a'.repeat(64)}`);
   });
 
   it('rejects a URL without an fp query parameter', () => {
-    expect(() => parseFingerprintFromUrl('https://h:1')).toThrowError(/fp=sha256/);
+    expect(() => parseFingerprintFromUrl(`https://h:1?key=${goodKey}`)).toThrowError(/fp=sha256/);
   });
 
   it('rejects a URL whose fp value is the wrong format', () => {
-    expect(() => parseFingerprintFromUrl('https://h:1?fp=md5:abcd')).toThrowError(/sha256:/);
-    expect(() => parseFingerprintFromUrl(`https://h:1?fp=sha256:${'g'.repeat(64)}`)).toThrowError(
+    expect(() => parseFingerprintFromUrl(`https://h:1?fp=md5:abcd&key=${goodKey}`)).toThrowError(/sha256:/);
+    expect(() => parseFingerprintFromUrl(`https://h:1?fp=sha256:${'g'.repeat(64)}&key=${goodKey}`)).toThrowError(
       /sha256:/,
     );
-    expect(() => parseFingerprintFromUrl(`https://h:1?fp=sha256:${'a'.repeat(63)}`)).toThrowError(
+    expect(() => parseFingerprintFromUrl(`https://h:1?fp=sha256:${'a'.repeat(63)}&key=${goodKey}`)).toThrowError(
       /sha256:/,
     );
   });
 
+  it('throws RoleKeyMissingError when the key query parameter is absent', () => {
+    expect(() => parseFingerprintFromUrl(`https://h:1?fp=${goodFingerprint}`)).toThrow(RoleKeyMissingError);
+  });
+
+  it('throws RoleKeyMissingError when the key parameter is empty', () => {
+    expect(() => parseFingerprintFromUrl(`https://h:1?fp=${goodFingerprint}&key=`)).toThrow(RoleKeyMissingError);
+  });
+
   it('rejects a URL without an explicit port', () => {
-    expect(() => parseFingerprintFromUrl(`https://h?fp=${goodFingerprint}`)).toThrowError(
+    expect(() => parseFingerprintFromUrl(`https://h?fp=${goodFingerprint}&key=${goodKey}`)).toThrowError(
       /explicit port/,
     );
   });
 
   it('rejects a URL with an out-of-range port', () => {
-    expect(() => parseFingerprintFromUrl(`https://h:0?fp=${goodFingerprint}`)).toThrowError(
+    expect(() => parseFingerprintFromUrl(`https://h:0?fp=${goodFingerprint}&key=${goodKey}`)).toThrowError(
       /URL is malformed|out of range/,
     );
   });
 
   it('rejects a URL with the wrong scheme', () => {
-    expect(() => parseFingerprintFromUrl(`http://h:1?fp=${goodFingerprint}`)).toThrowError(
+    expect(() => parseFingerprintFromUrl(`http://h:1?fp=${goodFingerprint}&key=${goodKey}`)).toThrowError(
       /https/,
     );
   });

@@ -24,6 +24,8 @@ export const REGISTRATION_REJECTED = 'REGISTRATION_REJECTED' as const;
 export const HOST_NOT_FOUND = 'HOST_NOT_FOUND' as const;
 /** Discriminating code for {@link RouterStartupError}. */
 export const ROUTER_STARTUP_FAILED = 'ROUTER_STARTUP_FAILED' as const;
+/** Discriminating code for {@link RoleKeyMissingError}. */
+export const ROLE_KEY_MISSING = 'ROLE_KEY_MISSING' as const;
 
 /**
  * The host's single session slot is already occupied.
@@ -157,6 +159,20 @@ export class RouterStartupError extends Error {
   }
 }
 
+/**
+ * The `key` query parameter is absent from a ShareGrid URL.
+ *
+ * Raised by `parseFingerprintFromUrl` when the URL does not contain the
+ * role-specific credential required for router admission. Always fail-closed.
+ */
+export class RoleKeyMissingError extends Error {
+  readonly code = ROLE_KEY_MISSING;
+  constructor(message = 'URL is missing the role key (key=...) query parameter') {
+    super(message);
+    this.name = 'RoleKeyMissingError';
+  }
+}
+
 /** Union of all error codes exported by this module. */
 export type ShareGridErrorCode =
   | typeof HOST_BUSY
@@ -167,4 +183,5 @@ export type ShareGridErrorCode =
   | typeof TLS_FINGERPRINT_MISMATCH
   | typeof REGISTRATION_REJECTED
   | typeof HOST_NOT_FOUND
-  | typeof ROUTER_STARTUP_FAILED;
+  | typeof ROUTER_STARTUP_FAILED
+  | typeof ROLE_KEY_MISSING;

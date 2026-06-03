@@ -25,6 +25,8 @@ export interface RegistrationPayload {
   modelName: string;
   port: number;
   tlsFingerprint: string;
+  /** Role credential parsed from the host registration URL (`key=` param). */
+  roleKey: string;
 }
 
 /** Router → Host: response to a successful registration. */
@@ -132,6 +134,8 @@ export interface SessionTimeout {
 export interface HostListRequest {
   v: ProtocolVersion;
   type: 'host_list_request';
+  /** Role credential parsed from the user access URL (`key=` param). */
+  roleKey: string;
 }
 
 /** One entry in the host list returned to LLMUsers. */

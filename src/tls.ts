@@ -12,7 +12,7 @@
 import { createHash, X509Certificate } from 'node:crypto';
 import { connect as tlsConnect, type TLSSocket } from 'node:tls';
 
-import { TlsFingerprintError } from './errors.js';
+import { TlsFingerprintError, RoleKeyMissingError } from './errors.js';
 
 /** Format prefix for SHA-256 fingerprints throughout ShareGrid. */
 export const FINGERPRINT_PREFIX = 'sha256:' as const;
@@ -26,17 +26,21 @@ export interface ParsedRouterUrl {
   port: number;
   /** Canonical lowercase form, including the `sha256:` prefix. */
   fingerprint: string;
+  /** Role-specific credential parsed from the `key=` query parameter. */
+  roleKey: string;
 }
 
 /**
- * Parse a router/host URL of the form `https://<host>:<port>?fp=sha256:<hex>`.
+ * Parse a router URL of the form
+ * `https://<host>:<port>?fp=sha256:<hex>&key=<base64url>`.
  *
- * The `fp` query parameter is mandatory — there is no fallback. The function
- * normalises the fingerprint to lowercase and validates the format with
- * {@link FINGERPRINT_REGEX} before returning.
+ * Both `fp` and `key` query parameters are mandatory — there is no fallback.
+ * The function normalises the fingerprint to lowercase and validates both
+ * parameters before returning.
  *
- * @throws Error if the URL is malformed, lacks an explicit port, or has no
- *               valid `fp` query parameter.
+ * @throws Error              if the URL is malformed, lacks an explicit port,
+ *                            or has no valid `fp` query parameter.
+ * @throws RoleKeyMissingError if the `key` query parameter is absent.
  */
 export function parseFingerprintFromUrl(url: string): ParsedRouterUrl {
   if (typeof url !== 'string' || url.length === 0) {
@@ -71,7 +75,15 @@ export function parseFingerprintFromUrl(url: string): ParsedRouterUrl {
     throw new Error(`fp parameter must match sha256:<64 hex chars>, got: ${fpRaw}`);
   }
 
-  return { host: parsed.hostname, port, fingerprint };
+  const roleKeyRaw = parsed.searchParams.get('key');
+  if (roleKeyRaw === null || roleKeyRaw.length === 0) {
+    throw new RoleKeyMissingError();
+  }
+  if (!/^[A-Za-z0-9_-]+$/.test(roleKeyRaw)) {
+    throw new Error(`key parameter must be a non-empty base64url string, got: ${roleKeyRaw}`);
+  }
+
+  return { host: parsed.hostname, port, fingerprint, roleKey: roleKeyRaw };
 }
 
 /**
