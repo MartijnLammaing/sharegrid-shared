@@ -25,6 +25,7 @@ export interface RegistrationPayload {
   modelName: string;
   port: number;
   tlsFingerprint: string;
+  listenHost: string;
   /** Role credential parsed from the host registration URL (`key=` param). */
   roleKey: string;
 }
