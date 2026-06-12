@@ -4,7 +4,6 @@ import { createHash } from 'node:crypto';
 import { AddressInfo } from 'node:net';
 // Pulled in as a devDependency only — @sharegrid/shared has zero runtime deps.
 // We use it here to produce a real PEM cert/key for end-to-end pinning tests.
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 import selfsigned from 'selfsigned';
 
 import {
