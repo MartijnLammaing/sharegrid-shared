@@ -135,6 +135,7 @@ describe('Router ↔ Host types', () => {
       modelName: 'test-model',
       port: 9000,
       tlsFingerprint: 'sha256:' + 'a'.repeat(64),
+      listenHost: '10.0.0.1',
       roleKey: 'secret',
     };
     expect(msg.type).toBe('register');
@@ -164,7 +165,7 @@ describe('Router ↔ Host types', () => {
   it('RegistrationPayload is assignable to RouterIncomingMessage', () => {
     const msg: RegistrationPayload = {
       v: PROTOCOL_VERSION, type: 'register', modelName: 'm', port: 9000,
-      tlsFingerprint: 'sha256:' + 'a'.repeat(64), roleKey: 'k',
+      tlsFingerprint: 'sha256:' + 'a'.repeat(64), listenHost: '10.0.0.1', roleKey: 'k',
     };
     const asUnion: RouterIncomingMessage = msg;
     expect(asUnion.type).toBe('register');
