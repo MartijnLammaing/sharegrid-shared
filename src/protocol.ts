@@ -34,13 +34,6 @@ export interface RegistrationPayload {
   listenHost: string;
   /** Role credential parsed from the host registration URL (`key=` param). */
   roleKey: string;
-  /**
-   * Externally-reachable IP address of the host (IPv6 preferred, IPv4 fallback).
-   * The router uses this to build the endpoint returned to users, rather than
-   * relying on sock.remoteAddress which may be a Docker bridge IP when
-   * co-located with the router.
-   */
-  listenHost: string;
 }
 
 /** Router → Host: response to a successful registration. */
