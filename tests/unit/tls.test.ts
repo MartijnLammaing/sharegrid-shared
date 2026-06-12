@@ -13,6 +13,9 @@ import {
   FINGERPRINT_PREFIX,
   FINGERPRINT_REGEX,
   parseFingerprintFromUrl,
+  formatEndpoint,
+  parseEndpoint,
+  isIPv6,
 } from '../../src/tls.js';
 import { TlsFingerprintError, RoleKeyMissingError } from '../../src/errors.js';
 
@@ -34,14 +37,34 @@ describe('parseFingerprintFromUrl', () => {
   const goodKey = 'testRoleKey123';
   const goodUrl = `https://router.example.com:8443?fp=${goodFingerprint}&key=${goodKey}`;
 
-  it('extracts host, port, fingerprint, and roleKey from a well-formed URL', () => {
+  it('extracts host, port, fingerprint, roleKey, and mode from a well-formed URL', () => {
     const parsed = parseFingerprintFromUrl(goodUrl);
     expect(parsed).toEqual({
       host: 'router.example.com',
       port: 8443,
       fingerprint: goodFingerprint,
       roleKey: goodKey,
+      mode: 'lan',
     });
+  });
+
+  it('defaults mode to lan when the mode param is absent', () => {
+    expect(parseFingerprintFromUrl(goodUrl).mode).toBe('lan');
+  });
+
+  it('parses mode=internet and strips brackets from an IPv6 host', () => {
+    const parsed = parseFingerprintFromUrl(
+      `https://[2001:db8::1]:8443?fp=${goodFingerprint}&key=${goodKey}&mode=internet`,
+    );
+    expect(parsed.host).toBe('2001:db8::1');
+    expect(parsed.port).toBe(8443);
+    expect(parsed.mode).toBe('internet');
+  });
+
+  it('rejects an unknown mode value', () => {
+    expect(() =>
+      parseFingerprintFromUrl(`https://h:1?fp=${goodFingerprint}&key=${goodKey}&mode=wan`),
+    ).toThrow(/mode parameter/);
   });
 
   it('normalises uppercase fingerprints to lowercase', () => {
@@ -207,6 +230,48 @@ describe('connectWithPinnedFingerprint', () => {
         timeoutMs: 500,
       }),
     ).rejects.toBeInstanceOf(Error);
+  });
+});
+
+describe('isIPv6', () => {
+  it('returns true for IPv6 literals (bare and bracketed)', () => {
+    expect(isIPv6('2001:db8::1')).toBe(true);
+    expect(isIPv6('[2001:db8::1]')).toBe(true);
+    expect(isIPv6('::1')).toBe(true);
+  });
+  it('returns false for IPv4 and hostnames', () => {
+    expect(isIPv6('192.168.1.42')).toBe(false);
+    expect(isIPv6('router.example.com')).toBe(false);
+  });
+});
+
+describe('formatEndpoint / parseEndpoint', () => {
+  it('leaves IPv4 authorities untouched', () => {
+    expect(formatEndpoint('192.168.1.42', 9000)).toBe('192.168.1.42:9000');
+  });
+  it('brackets IPv6 literals', () => {
+    expect(formatEndpoint('2001:db8::1', 9000)).toBe('[2001:db8::1]:9000');
+  });
+  it('does not double-bracket already-bracketed IPv6', () => {
+    expect(formatEndpoint('[2001:db8::1]', 9000)).toBe('[2001:db8::1]:9000');
+  });
+  it('round-trips IPv4', () => {
+    expect(parseEndpoint(formatEndpoint('10.0.0.5', 8443))).toEqual({ host: '10.0.0.5', port: 8443 });
+  });
+  it('round-trips IPv6, stripping the brackets', () => {
+    expect(parseEndpoint(formatEndpoint('2001:db8::1', 8443))).toEqual({
+      host: '2001:db8::1',
+      port: 8443,
+    });
+  });
+  it('parses a bracketed IPv6 wildcard listen address', () => {
+    expect(parseEndpoint('[::]:8443')).toEqual({ host: '::', port: 8443 });
+  });
+  it('throws on a missing port', () => {
+    expect(() => parseEndpoint('192.168.1.42')).toThrow(/port/);
+  });
+  it('throws on a malformed bracketed endpoint', () => {
+    expect(() => parseEndpoint('[2001:db8::1]9000')).toThrow(/malformed/);
   });
 });
 
