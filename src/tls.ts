@@ -20,6 +20,16 @@ export const FINGERPRINT_PREFIX = 'sha256:' as const;
 /** Regular expression matching the canonical fingerprint format `sha256:<64 hex chars>`. */
 export const FINGERPRINT_REGEX = /^sha256:[0-9a-f]{64}$/;
 
+/**
+ * ShareGrid network mode. Determines the address family modules advertise and
+ * dial: `lan` is IPv4 (the default); `internet` is globally-routable IPv6.
+ * See docs/architecture_overview.md §9 (Network mode).
+ */
+export type NetworkMode = 'lan' | 'internet';
+
+/** Set of valid {@link NetworkMode} values. */
+export const NETWORK_MODES: readonly NetworkMode[] = ['lan', 'internet'] as const;
+
 /** Result of parsing a `SHAREGRID_*_URL` into its connection components. */
 export interface ParsedRouterUrl {
   host: string;
@@ -28,6 +38,71 @@ export interface ParsedRouterUrl {
   fingerprint: string;
   /** Role-specific credential parsed from the `key=` query parameter. */
   roleKey: string;
+  /** Router network mode parsed from the `mode=` query parameter; `lan` when absent. */
+  mode: NetworkMode;
+}
+
+/**
+ * Heuristic check for an IPv6 literal. An IPv4 address or DNS hostname never
+ * contains a colon, so the presence of a colon is sufficient to distinguish an
+ * IPv6 literal. Accepts both bare (`2001:db8::1`) and bracketed (`[2001:db8::1]`)
+ * forms.
+ */
+export function isIPv6(host: string): boolean {
+  return host.includes(':');
+}
+
+/**
+ * Format a `host:port` authority, bracketing IPv6 literals so the result can be
+ * split unambiguously and used in a URL. IPv4 addresses and hostnames are left
+ * untouched. Already-bracketed IPv6 input is not double-bracketed.
+ *
+ *   formatEndpoint('192.168.1.42', 9000) === '192.168.1.42:9000'
+ *   formatEndpoint('2001:db8::1', 9000)  === '[2001:db8::1]:9000'
+ */
+export function formatEndpoint(host: string, port: number): string {
+  if (isIPv6(host) && !host.startsWith('[')) {
+    return `[${host}]:${port}`;
+  }
+  return `${host}:${port}`;
+}
+
+/**
+ * Split a `host:port` authority into its parts, stripping the brackets from an
+ * IPv6 literal so the bare address can be passed to `tls.connect`. The inverse
+ * of {@link formatEndpoint}.
+ *
+ *   parseEndpoint('192.168.1.42:9000') === { host: '192.168.1.42', port: 9000 }
+ *   parseEndpoint('[2001:db8::1]:9000') === { host: '2001:db8::1', port: 9000 }
+ *
+ * @throws Error if the endpoint has no port or the port is out of range.
+ */
+export function parseEndpoint(endpoint: string): { host: string; port: number } {
+  let host: string;
+  let portStr: string;
+  if (endpoint.startsWith('[')) {
+    const close = endpoint.indexOf(']');
+    if (close === -1 || endpoint[close + 1] !== ':') {
+      throw new Error(`endpoint is malformed: ${endpoint}`);
+    }
+    host = endpoint.slice(1, close);
+    portStr = endpoint.slice(close + 2);
+  } else {
+    const lastColon = endpoint.lastIndexOf(':');
+    if (lastColon === -1) {
+      throw new Error(`endpoint is missing a port: ${endpoint}`);
+    }
+    host = endpoint.slice(0, lastColon);
+    portStr = endpoint.slice(lastColon + 1);
+  }
+  const port = Number(portStr);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error(`endpoint port out of range: ${portStr}`);
+  }
+  if (host.length === 0) {
+    throw new Error(`endpoint is missing a host: ${endpoint}`);
+  }
+  return { host, port };
 }
 
 /**
@@ -83,7 +158,23 @@ export function parseFingerprintFromUrl(url: string): ParsedRouterUrl {
     throw new Error(`key parameter must be a non-empty base64url string, got: ${roleKeyRaw}`);
   }
 
-  return { host: parsed.hostname, port, fingerprint, roleKey: roleKeyRaw };
+  const modeRaw = parsed.searchParams.get('mode');
+  let mode: NetworkMode = 'lan';
+  if (modeRaw !== null && modeRaw.length > 0) {
+    if (!NETWORK_MODES.includes(modeRaw as NetworkMode)) {
+      throw new Error(`mode parameter must be one of ${NETWORK_MODES.join('|')}, got: ${modeRaw}`);
+    }
+    mode = modeRaw as NetworkMode;
+  }
+
+  // URL.hostname keeps the brackets around an IPv6 literal (e.g. `[2001:db8::1]`).
+  // Strip them so the bare address is returned — that is the form tls.connect
+  // expects.
+  let host = parsed.hostname;
+  if (host.startsWith('[') && host.endsWith(']')) {
+    host = host.slice(1, -1);
+  }
+  return { host, port, fingerprint, roleKey: roleKeyRaw, mode };
 }
 
 /**

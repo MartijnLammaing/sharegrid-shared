@@ -25,6 +25,12 @@ export interface RegistrationPayload {
   modelName: string;
   port: number;
   tlsFingerprint: string;
+  /**
+   * The host's advertised address, matching the router's network mode: an IPv4
+   * literal in `lan` mode, or an IPv6 literal (bare, no brackets) in `internet`
+   * mode. The router brackets it into the registry `endpoint` via
+   * `formatEndpoint`. See docs/architecture_overview.md §9.
+   */
   listenHost: string;
   /** Role credential parsed from the host registration URL (`key=` param). */
   roleKey: string;
@@ -131,7 +137,7 @@ export interface HostListRequest {
 export interface HostListEntry {
   hostId: string;
   modelName: string;
-  /** `host:port` the user connects to directly. */
+  /** `host:port` the user connects to directly; an IPv6 host is bracketed (`[2001:db8::1]:9000`). Split with `parseEndpoint`. */
   endpoint: string;
   /** `sha256:<hex>`; pinned by the user before opening a session. */
   tlsFingerprint: string;
